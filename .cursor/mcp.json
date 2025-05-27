@@ -1,15 +1,36 @@
 {
   "mcpServers": {
+    "github": {
+      "command": "instant-mcp",
+      "args": [
+        "github"
+      ],
+      "description": "A math server providing basic calculations",
+      "tools": [
+        "show_changes_since_latest_tag"
+      ]
+    },
     "math_mcp": {
       "command": "instant-mcp",
       "args": [
         "math_mcp"
+      ],
+      "description": "A math server providing basic calculations",
+      "tools": [
+        "calculate",
+        "square_root",
+        "factorial"
       ]
     },
     "text_server": {
       "command": "instant-mcp",
       "args": [
         "text_server"
+      ],
+      "description": "A text processing server providing string manipulation tools",
+      "tools": [
+        "reverse_text",
+        "count_words"
       ]
     }
   }
