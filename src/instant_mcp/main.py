@@ -1,156 +1,210 @@
 #!/usr/bin/env python3
 """
-Main entry point for instant-mcp servers.
-Usage:
-    instant-mcp utils_mcp         # Run utils server
-    instant-mcp --list            # List available servers
-    instant-mcp config --show     # Show current configuration
-    instant-mcp config --set-target-path /path/to/servers
-    instant-mcp export --cursor   # Export to .cursor/mcp.json
-    instant-mcp export --preview  # Preview export configuration
-
+Main entry point for instant-mcp servers using Cleo.
 """
 
-import sys
-import argparse
+from cleo.application import Application
+from cleo.commands.command import Command
+from cleo.helpers import argument, option
+
 from .discovery import discover_mcp_servers
 from .server_builder import run_server
 from .config import show_config, set_target_path, reset_config, get_target_path
 from .export import export_cursor_config, export_detailed_config, show_export_preview
 
 
-def list_servers():
-    """List all available servers."""
-    servers = discover_mcp_servers()
-    if not servers:
-        print("No servers found.")
-        print(f"Current target path: {get_target_path()}")
-        return
+class ServersCommand(Command):
+    """
+    List all available MCP servers
     
-    print("Available servers:")
-    for server_name, config in sorted(servers.items()):
-        server_type = config["type"]
-        instructions = config["instructions"]
-        tools = ", ".join(config["tools"])
-        print(f"  - {server_name} ({server_type}): {instructions}")
-        print(f"    Tools: {tools}")
+    servers
+    """
     
-    print(f"\nCurrent target path: {get_target_path()}")
+    name = "servers"
+    description = "List all available MCP servers"
+    
+    def handle(self):
+        servers = discover_mcp_servers()
+        if not servers:
+            self.line("No servers found.")
+            self.line(f"Current target path: {get_target_path()}")
+            return
+        
+        self.line("Available servers:")
+        for server_name, config in sorted(servers.items()):
+            server_type = config["type"]
+            instructions = config["instructions"]
+            tools = ", ".join(config["tools"])
+            self.line(f"  - <info>{server_name}</info> ({server_type}): {instructions}")
+            self.line(f"    Tools: {tools}")
+        
+        self.line(f"\nCurrent target path: {get_target_path()}")
 
-def handle_config_command(args):
-    """Handle config subcommands."""
-    parser = argparse.ArgumentParser(prog='instant-mcp config')
-    parser.add_argument('--show', action='store_true', help='Show current configuration')
-    parser.add_argument('--set-target-path', type=str, help='Set target path for server discovery')
-    parser.add_argument('--reset', action='store_true', help='Reset configuration to defaults')
+
+class RunCommand(Command):
+    name = "run"
+    description = "Run a specific MCP server"
+    arguments = [
+        argument(
+            "server",
+            description="The name of the server to run"
+        )
+    ]
     
-    config_args = parser.parse_args(args)
+    def handle(self):
+        server_name = self.argument("server")
+        servers = discover_mcp_servers()
+        
+        if server_name not in servers:
+            self.line_error(f"Error: Server '<error>{server_name}</error>' not found.")
+            self.line_error(f"Available servers: {', '.join(sorted(servers.keys()))}")
+            return 1
+        
+        try:
+            self.line_error(f"Starting <info>{server_name}</info>...")
+            run_server(server_name)
+        except Exception as e:
+            self.line_error(f"Error running {server_name}: {e}")
+            return 1
+
+
+class ConfigShowCommand(Command):
+    """
+    Show current configuration
     
-    if config_args.show:
+    config:show
+    """
+    
+    name = "config:show"
+    description = "Show current configuration settings"
+    
+    def handle(self):
         show_config()
-    elif config_args.set_target_path:
-        set_target_path(config_args.set_target_path)
-    elif config_args.reset:
+
+
+class ConfigSetTargetPathCommand(Command):
+    name = "config:set-target-path"
+    description = "Set target path for server discovery"
+    arguments = [
+        argument(
+            "path",
+            description="The path to set as target directory"
+        )
+    ]
+    
+    def handle(self):
+        path = self.argument("path")
+        set_target_path(path)
+
+
+class ConfigResetCommand(Command):
+    """
+    Reset configuration to defaults
+    
+    config:reset
+    """
+    
+    name = "config:reset"
+    description = "Reset configuration to default values"
+    
+    def handle(self):
         reset_config()
-    else:
-        parser.print_help()
 
-def handle_export_command(args):
-    """Handle export subcommands."""
-    parser = argparse.ArgumentParser(prog='instant-mcp export')
-    parser.add_argument('--cursor', action='store_true', help='Export to Cursor MCP format (.cursor/mcp.json)')
-    parser.add_argument('--detailed', action='store_true', help='Export detailed configuration with server info')
-    parser.add_argument('--preview', action='store_true', help='Preview export configuration without writing files')
-    parser.add_argument('--output', type=str, help='Custom output file path')
+
+class ExportCursorCommand(Command):
+    """
+    Export to Cursor MCP format (.cursor/mcp.json)
     
-    export_args = parser.parse_args(args)
+    export:cursor
+    """
     
-    if export_args.cursor:
-        output_path = export_args.output if export_args.output else None
-        export_cursor_config(output_path)
-    elif export_args.detailed:
-        output_path = export_args.output if export_args.output else None
-        export_detailed_config(output_path)
-    elif export_args.preview:
+    name = "export:cursor"
+    description = "Export configuration to Cursor MCP format (.cursor/mcp.json)"
+    
+    def handle(self):
+        export_cursor_config()
+
+
+class ExportDetailedCommand(Command):
+    """
+    Export detailed configuration with server info
+    
+    export:detailed
+    """
+    
+    name = "export:detailed"
+    description = "Export detailed configuration with server information"
+    
+    def handle(self):
+        export_detailed_config()
+
+
+class ExportPreviewCommand(Command):
+    """
+    Preview export configuration without writing files
+    
+    export:preview
+    """
+    
+    name = "export:preview"
+    description = "Preview export configuration without writing files"
+    
+    def handle(self):
         show_export_preview()
-    else:
-        parser.print_help()
 
+
+def create_application():
+    """Create and configure the Cleo application."""
+    app = Application("instant-mcp", "0.1.0")
+    
+    # Add commands
+    app.add(ServersCommand())
+    app.add(RunCommand())
+    app.add(ConfigShowCommand())
+    app.add(ConfigSetTargetPathCommand())
+    app.add(ConfigResetCommand())
+    app.add(ExportCursorCommand())
+    app.add(ExportDetailedCommand())
+    app.add(ExportPreviewCommand())
+    
+    return app
 
 
 def main():
-    # Discover servers first to get available choices
-    servers = discover_mcp_servers()
-    server_names = list(servers.keys())
+    """Main entry point."""
+    import sys
     
-    # Manual argument parsing to handle subcommands and server names
+    # If no arguments provided, show list of servers
     if len(sys.argv) == 1:
-        # No arguments, show help
-        show_help(server_names)
+        servers = discover_mcp_servers()
+        if servers:
+            # If we have servers, try to run the first argument as a server name
+            app = create_application()
+            app.run()
+        else:
+            # No servers found, show help
+            app = create_application()
+            app.run()
         return
     
+    # Check if first argument is a server name (for backward compatibility)
     first_arg = sys.argv[1]
+    servers = discover_mcp_servers()
     
-    # Handle --list
-    if first_arg == '--list':
-        list_servers()
+    # If first argument is a known server name and no command prefix, run it directly
+    if first_arg in servers and not first_arg.startswith('-'):
+        try:
+            print(f"Starting {first_arg}...", file=sys.stderr)
+            run_server(first_arg)
+        except Exception as e:
+            print(f"Error running {first_arg}: {e}", file=sys.stderr)
+            sys.exit(1)
         return
     
-    # Handle --help
-    if first_arg in ['-h', '--help']:
-        show_help(server_names)
-        return
-    
-    # Handle config subcommand
-    if first_arg == 'config':
-        handle_config_command(sys.argv[2:])
-        return
-    
-    # Handle export subcommand
-    if first_arg == 'export':
-        handle_export_command(sys.argv[2:])
-        return
-    
+    # Otherwise, use normal Cleo command processing
+    app = create_application()
+    app.run()
 
-    
-    # Otherwise, treat as server name
-    server_name = first_arg
-    
-    # Check if the server exists
-    if server_name not in server_names:
-        print(f"Error: Server '{server_name}' not found.")
-        print(f"Available servers: {', '.join(sorted(server_names))}")
-        sys.exit(1)
-    
-    # Run the selected server
-    try:
-        print(f"Starting {server_name}...", file=sys.stderr)
-        run_server(server_name)
-    except Exception as e:
-        print(f"Error running {server_name}: {e}", file=sys.stderr)
-        sys.exit(1)
-
-def show_help(server_names):
-    """Show help message."""
-    print("Instant MCP Server Launcher")
-    print()
-    print("Usage:")
-    print("  instant-mcp <server_name>        # Run a specific server")
-    print("  instant-mcp --list              # List available servers")
-    print("  instant-mcp config --show       # Show current configuration")
-    print("  instant-mcp config --set-target-path PATH")
-    print("  instant-mcp config --reset      # Reset configuration")
-    print("  instant-mcp export --preview    # Preview MCP configuration")
-    print("  instant-mcp export --cursor     # Export to .cursor/mcp.json")
-    print("  instant-mcp export --detailed   # Export detailed configuration")
-
-    print()
-    print(f"Current target path: {get_target_path()}")
-    print(f"Available servers: {', '.join(sorted(server_names))}")
-    print()
-    print("Server Discovery:")
-    print("  - Files ending with _mcp.py are automatically detected")
-    print("  - Files with SeverProtocol definitions are registered")
 
 if __name__ == "__main__":
     main() 

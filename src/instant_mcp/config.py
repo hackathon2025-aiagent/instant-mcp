@@ -5,7 +5,7 @@ from typing import Dict, Any, Optional
 
 # Default configuration
 DEFAULT_CONFIG = {
-    "target_path": "./instant_servers"
+    "target_path": os.path.abspath("./instant_servers")
 }
 
 def get_config_file_path() -> Path:
@@ -46,7 +46,14 @@ def save_config(config: Dict[str, Any]) -> None:
 def get_target_path() -> str:
     """Get the current target path from config."""
     config = load_config()
-    return config["target_path"]
+    path = config["target_path"]
+    # Convert to absolute path if it's relative
+    if not os.path.isabs(path):
+        path = os.path.abspath(path)
+        # Update config with absolute path
+        config["target_path"] = path
+        save_config(config)
+    return path
 
 def set_target_path(path: str) -> None:
     """Set the target path in config."""

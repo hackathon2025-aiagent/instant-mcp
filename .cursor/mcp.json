@@ -5,7 +5,7 @@
       "args": [
         "github"
       ],
-      "description": "A math server providing basic calculations",
+      "description": "git diff between latest version tag and current HEAD",
       "tools": [
         "show_changes_since_latest_tag"
       ]
