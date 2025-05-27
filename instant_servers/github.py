@@ -120,10 +120,11 @@ def get_commit_summary_from_latest_tag(repo_path: str = ".") -> Tuple[Optional[s
         return latest_tag, f"Error getting commit summary: {e}"
 
 
-def prepare_commit_with_message(repo_path: str, title: str, body: str = ""):
+def write_release_commit_message(repo_path: str, title: str, body: str = ""):
     """
-    Prepare a commit by staging all changes and setting up commit message.
-    Typically used after running show_changes_since_latest_tag to review changes.
+    Write a release commit message with automatic summary of changes since latest tag.
+    REQUIRES: Clean working directory (no uncommitted changes).
+    Typically used after committing all development changes to create a release commit.
     
     Args:
         repo_path: ABSOLUTE path to the git repository (relative paths not supported)
@@ -150,21 +151,101 @@ def prepare_commit_with_message(repo_path: str, title: str, body: str = ""):
         return f"Error: '{repo_path}' is not a git repository"
     
     try:
-        # Stage all changes (git add .)
-        add_result = subprocess.run(
-            ['git', 'add', '.'],
+        # Check if there are any uncommitted changes
+        status_result = subprocess.run(
+            ['git', 'status', '--porcelain'],
             capture_output=True,
             text=True,
             check=True,
             cwd=repo_path
         )
         
+        # If there are uncommitted changes, fail
+        if status_result.stdout.strip():
+            result_lines = []
+            result_lines.append("❌ Cannot create release commit: Uncommitted changes detected")
+            result_lines.append("")
+            result_lines.append("Please commit or stash your changes first:")
+            result_lines.append("")
+            
+            # Show what changes are uncommitted
+            for line in status_result.stdout.strip().split('\n'):
+                if len(line) >= 3:
+                    status_code = line[:2].strip()
+                    file_path = line[3:]
+                    
+                    if 'M' in status_code:
+                        result_lines.append(f"🔄 Modified: {file_path}")
+                    elif 'A' in status_code:
+                        result_lines.append(f"✅ Added: {file_path}")
+                    elif 'D' in status_code:
+                        result_lines.append(f"❌ Deleted: {file_path}")
+                    elif 'R' in status_code:
+                        result_lines.append(f"📝 Renamed: {file_path}")
+                    elif 'C' in status_code:
+                        result_lines.append(f"📋 Copied: {file_path}")
+                    else:
+                        result_lines.append(f"📄 Changed: {file_path}")
+            
+            result_lines.append("")
+            result_lines.append("💡 Suggested workflow:")
+            result_lines.append("1. Use show_changes_since_latest_tag() to review changes")
+            result_lines.append("2. Commit your changes first")
+            result_lines.append("3. Then use write_release_commit_message() for release commit")
+            
+            return "\n".join(result_lines)
+        
+        # Get commit summary since latest tag for the release commit message
+        latest_tag, commit_summary = get_commit_summary_from_latest_tag(repo_path)
+        
+        # Get file changes since latest tag using git diff --name-status
+        diff_result = subprocess.run(
+            ['git', 'diff', '--name-status', latest_tag],
+            capture_output=True,
+            text=True,
+            check=True,
+            cwd=repo_path
+        )
+        
+        # Parse file changes since latest tag
+        file_changes = []
+        if diff_result.stdout.strip():
+            for line in diff_result.stdout.strip().split('\n'):
+                if '\t' in line:
+                    parts = line.split('\t', 1)
+                    status_code = parts[0].strip()
+                    file_path = parts[1]
+                    
+                    # Color coding for different status types
+                    if status_code == 'M':
+                        file_changes.append(f"🔄 Modified: {file_path}")
+                    elif status_code == 'A':
+                        file_changes.append(f"✅ Added: {file_path}")
+                    elif status_code == 'D':
+                        file_changes.append(f"❌ Deleted: {file_path}")
+                    elif status_code.startswith('R'):
+                        file_changes.append(f"📝 Renamed: {file_path}")
+                    elif status_code.startswith('C'):
+                        file_changes.append(f"📋 Copied: {file_path}")
+                    else:
+                        file_changes.append(f"📄 Changed: {file_path}")
+        
+        # Create enhanced commit message
+        enhanced_body = body
+        if file_changes:
+            file_summary = f"\n\nChanges since {latest_tag}:\n" + "\n".join(file_changes)
+            enhanced_body = (body + file_summary) if body.strip() else file_summary.strip()
+        
+        if commit_summary.strip():
+            commit_info = f"\n\nCommits included:\n{commit_summary.strip()}"
+            enhanced_body = enhanced_body + commit_info if enhanced_body.strip() else commit_info.strip()
+        
         # Prepare commit command with -m options
         commit_cmd = ['git', 'commit', '-m', title]
         
-        # Add body as separate -m if provided
-        if body.strip():
-            commit_cmd.extend(['-m', body])
+        # Add enhanced body as separate -m if provided
+        if enhanced_body.strip():
+            commit_cmd.extend(['-m', enhanced_body])
         
         # Run git commit with -m options
         commit_result = subprocess.run(
@@ -176,22 +257,22 @@ def prepare_commit_with_message(repo_path: str, title: str, body: str = ""):
         
         # Prepare display message for user
         commit_message = title
-        if body.strip():
-            commit_message += f"\n\n{body}"
+        if enhanced_body.strip():
+            commit_message += f"\n\n{enhanced_body}"
         
         result_lines = []
-        result_lines.append("=== Commit Process Complete ===")
+        result_lines.append("=== Release Commit Complete ===")
         result_lines.append(f"Repository: {os.path.abspath(repo_path)}")
-        result_lines.append(f"All changes have been staged (git add .)")
+        result_lines.append(f"Release commit created from clean working directory")
         result_lines.append("")
         
         if commit_result.returncode == 0:
-            result_lines.append("✅ Commit successful!")
+            result_lines.append("✅ Release commit successful!")
             result_lines.append("")
             result_lines.append("Commit message used:")
-            result_lines.append("-" * 40)
+            result_lines.append("-" * 50)
             result_lines.append(commit_message)
-            result_lines.append("-" * 40)
+            result_lines.append("-" * 50)
             
             # Show commit output
             if commit_result.stdout.strip():
@@ -207,9 +288,9 @@ def prepare_commit_with_message(repo_path: str, title: str, body: str = ""):
             
             result_lines.append("")
             result_lines.append("The commit message was prepared as:")
-            result_lines.append("-" * 40)
+            result_lines.append("-" * 50)
             result_lines.append(commit_message)
-            result_lines.append("-" * 40)
+            result_lines.append("-" * 50)
             result_lines.append("")
             result_lines.append("You can retry with: git commit")
         
@@ -218,20 +299,27 @@ def prepare_commit_with_message(repo_path: str, title: str, body: str = ""):
     except subprocess.CalledProcessError as e:
         return f"Error during commit process: {e}"
     except IOError as e:
-        return f"Error writing commit message: {e}"
+        return f"Error during commit process: {e}"
 
 
-def show_changes_since_latest_tag(repo_path: str, include_working_dir: str = "true"):
+def show_changes_since_latest_tag(repo_path: str, include_working_dir: str = "true", force_commit: str = "false"):
     """
-    Display changes since the latest version tag
+    Display changes since the latest version tag.
+    
+    IMPORTANT: For accurate comparison with the latest tag, it's recommended to commit 
+    your current changes first. This ensures the comparison shows the difference between 
+    the latest tag and your committed work, rather than including uncommitted changes.
     
     Args:
         repo_path: ABSOLUTE path to the git repository (relative paths not supported)
         include_working_dir: "true" to include uncommitted changes (recommended), 
                            "false" to show only committed changes
+        force_commit: "true" to automatically commit all changes before comparison,
+                     "false" to compare current state as-is
     """
-    # Convert string parameter to boolean
+    # Convert string parameters to boolean
     include_working = include_working_dir.lower() == "true"
+    should_force_commit = force_commit.lower() == "true"
     
     # Validate that absolute path is provided
     if not os.path.isabs(repo_path):
@@ -252,6 +340,46 @@ def show_changes_since_latest_tag(repo_path: str, include_working_dir: str = "tr
     result = []
     result.append("=== Version Tag Analysis ===")
     result.append(f"Repository path: {os.path.abspath(repo_path)}")
+    
+    # Force commit if requested
+    if should_force_commit:
+        try:
+            # Check if there are any changes to commit
+            status_result = subprocess.run(
+                ['git', 'status', '--porcelain'],
+                capture_output=True,
+                text=True,
+                check=True,
+                cwd=repo_path
+            )
+            
+            if status_result.stdout.strip():
+                # Stage all changes
+                subprocess.run(
+                    ['git', 'add', '.'],
+                    capture_output=True,
+                    text=True,
+                    check=True,
+                    cwd=repo_path
+                )
+                
+                # Commit with auto-generated message
+                commit_result = subprocess.run(
+                    ['git', 'commit', '-m', 'Auto-commit before tag comparison'],
+                    capture_output=True,
+                    text=True,
+                    cwd=repo_path
+                )
+                
+                if commit_result.returncode == 0:
+                    result.append("✅ Auto-committed all changes before comparison")
+                else:
+                    result.append("⚠️  Auto-commit failed, proceeding with current state")
+            else:
+                result.append("ℹ️  No changes to commit")
+                
+        except subprocess.CalledProcessError as e:
+            result.append(f"⚠️  Error during auto-commit: {e}")
     
     comparison_type = "working directory (includes uncommitted changes)" if include_working else "HEAD (committed changes only)"
     result.append(f"Comparison mode: {comparison_type}")
@@ -284,5 +412,5 @@ def show_changes_since_latest_tag(repo_path: str, include_working_dir: str = "tr
 
 # Server configuration
 name = "github"
-instructions = "Compare current state with latest version tag. Requires ABSOLUTE path to git repository. Includes uncommitted changes by default (recommended for development)."
-tools = ["show_changes_since_latest_tag", "prepare_commit_with_message"]
+instructions = "Compare current state with latest version tag and write release commit messages. Requires ABSOLUTE path to git repository. Use force_commit=true to auto-commit before comparison for cleaner tag comparison."
+tools = ["show_changes_since_latest_tag", "write_release_commit_message"]

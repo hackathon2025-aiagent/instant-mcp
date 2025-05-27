@@ -5,9 +5,10 @@
       "args": [
         "github"
       ],
-      "description": "git diff between latest version tag and current HEAD",
+      "description": "Compare current state with latest version tag and write release commit messages. Requires ABSOLUTE path to git repository. Use force_commit=true to auto-commit before comparison for cleaner tag comparison.",
       "tools": [
-        "show_changes_since_latest_tag"
+        "show_changes_since_latest_tag",
+        "write_release_commit_message"
       ]
     },
     "math_mcp": {
