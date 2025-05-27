@@ -1,0 +1,16 @@
+[project]
+name = "instant-mcp"
+version = "0.1.0"
+description = ""
+authors = [
+    {name = "crimson206",email = "crimson206@gmail.com"}
+]
+readme = "README.md"
+requires-python = ">=3.10"
+dependencies = [
+    "httpx (>=0.28.1,<0.29.0)",
+    "mcp (>=1.9.1,<2.0.0)"
+]
+
+[project.scripts]
+instant-mcp = "instant_mcp.main:main"

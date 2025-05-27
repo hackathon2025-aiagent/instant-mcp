@@ -1,0 +1,16 @@
+{
+  "mcpServers": {
+    "math_mcp": {
+      "command": "instant-mcp",
+      "args": [
+        "math_mcp"
+      ]
+    },
+    "text_server": {
+      "command": "instant-mcp",
+      "args": [
+        "text_server"
+      ]
+    }
+  }
+}
