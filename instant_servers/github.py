@@ -122,9 +122,8 @@ def get_commit_summary_from_latest_tag(repo_path: str = ".") -> Tuple[Optional[s
 
 def write_release_commit_message(repo_path: str, title: str, body: str = ""):
     """
-    Write a release commit message with automatic summary of changes since latest tag.
-    REQUIRES: Clean working directory (no uncommitted changes).
-    Typically used after committing all development changes to create a release commit.
+    Amend the last commit with a release commit message including automatic summary of changes since latest tag.
+    This modifies the most recent commit's message rather than creating a new commit.
     
     Args:
         repo_path: ABSOLUTE path to the git repository (relative paths not supported)
@@ -151,50 +150,6 @@ def write_release_commit_message(repo_path: str, title: str, body: str = ""):
         return f"Error: '{repo_path}' is not a git repository"
     
     try:
-        # Check if there are any uncommitted changes
-        status_result = subprocess.run(
-            ['git', 'status', '--porcelain'],
-            capture_output=True,
-            text=True,
-            check=True,
-            cwd=repo_path
-        )
-        
-        # If there are uncommitted changes, fail
-        if status_result.stdout.strip():
-            result_lines = []
-            result_lines.append("❌ Cannot create release commit: Uncommitted changes detected")
-            result_lines.append("")
-            result_lines.append("Please commit or stash your changes first:")
-            result_lines.append("")
-            
-            # Show what changes are uncommitted
-            for line in status_result.stdout.strip().split('\n'):
-                if len(line) >= 3:
-                    status_code = line[:2].strip()
-                    file_path = line[3:]
-                    
-                    if 'M' in status_code:
-                        result_lines.append(f"🔄 Modified: {file_path}")
-                    elif 'A' in status_code:
-                        result_lines.append(f"✅ Added: {file_path}")
-                    elif 'D' in status_code:
-                        result_lines.append(f"❌ Deleted: {file_path}")
-                    elif 'R' in status_code:
-                        result_lines.append(f"📝 Renamed: {file_path}")
-                    elif 'C' in status_code:
-                        result_lines.append(f"📋 Copied: {file_path}")
-                    else:
-                        result_lines.append(f"📄 Changed: {file_path}")
-            
-            result_lines.append("")
-            result_lines.append("💡 Suggested workflow:")
-            result_lines.append("1. Use show_changes_since_latest_tag() to review changes")
-            result_lines.append("2. Commit your changes first")
-            result_lines.append("3. Then use write_release_commit_message() for release commit")
-            
-            return "\n".join(result_lines)
-        
         # Get commit summary since latest tag for the release commit message
         latest_tag, commit_summary = get_commit_summary_from_latest_tag(repo_path)
         
@@ -240,8 +195,8 @@ def write_release_commit_message(repo_path: str, title: str, body: str = ""):
             commit_info = f"\n\nCommits included:\n{commit_summary.strip()}"
             enhanced_body = enhanced_body + commit_info if enhanced_body.strip() else commit_info.strip()
         
-        # Prepare commit command with -m options
-        commit_cmd = ['git', 'commit', '-m', title]
+        # Prepare commit command with --amend and -m options
+        commit_cmd = ['git', 'commit', '--amend', '-m', title]
         
         # Add enhanced body as separate -m if provided
         if enhanced_body.strip():
@@ -261,15 +216,15 @@ def write_release_commit_message(repo_path: str, title: str, body: str = ""):
             commit_message += f"\n\n{enhanced_body}"
         
         result_lines = []
-        result_lines.append("=== Release Commit Complete ===")
+        result_lines.append("=== Commit Message Amendment Complete ===")
         result_lines.append(f"Repository: {os.path.abspath(repo_path)}")
-        result_lines.append(f"Release commit created from clean working directory")
+        result_lines.append(f"Last commit message amended with release information")
         result_lines.append("")
         
         if commit_result.returncode == 0:
-            result_lines.append("✅ Release commit successful!")
+            result_lines.append("✅ Commit message amendment successful!")
             result_lines.append("")
-            result_lines.append("Commit message used:")
+            result_lines.append("Updated commit message:")
             result_lines.append("-" * 50)
             result_lines.append(commit_message)
             result_lines.append("-" * 50)
@@ -280,7 +235,7 @@ def write_release_commit_message(repo_path: str, title: str, body: str = ""):
                 result_lines.append("Git output:")
                 result_lines.append(commit_result.stdout.strip())
         else:
-            result_lines.append("❌ Commit was cancelled or failed")
+            result_lines.append("❌ Commit amendment was cancelled or failed")
             if commit_result.stderr.strip():
                 result_lines.append("")
                 result_lines.append("Error details:")
@@ -292,7 +247,7 @@ def write_release_commit_message(repo_path: str, title: str, body: str = ""):
             result_lines.append(commit_message)
             result_lines.append("-" * 50)
             result_lines.append("")
-            result_lines.append("You can retry with: git commit")
+            result_lines.append("You can retry with: git commit --amend")
         
         return "\n".join(result_lines)
         
