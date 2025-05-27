@@ -302,12 +302,12 @@ def write_release_commit_message(repo_path: str, title: str, body: str = ""):
         return f"Error during commit process: {e}"
 
 
-def show_changes_since_latest_tag(repo_path: str, include_working_dir: str = "true", force_commit: str = "false"):
+def show_changes_since_latest_tag(repo_path: str, include_working_dir: str = "true", force_commit: str = "true"):
     """
     Display changes since the latest version tag.
     
     IMPORTANT: For accurate comparison with the latest tag, it's recommended to commit 
-    your current changes first. This ensures the comparison shows the difference between 
+    your current changes first(set force_commit=true). This ensures the comparison shows the difference between 
     the latest tag and your committed work, rather than including uncommitted changes.
     
     Args:
