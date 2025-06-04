@@ -2,7 +2,7 @@ from typing import Any
 from instant_mcp import SeverProtocol
 
 SeverProtocol(
-    name="text_server",
+    name="my_text_server",
     instructions="A text processing server providing string manipulation tools",
     tools=[
         "reverse_text",

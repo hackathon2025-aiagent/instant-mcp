@@ -2,11 +2,27 @@ import json
 import os
 from pathlib import Path
 from typing import Dict, Any, Optional
+import appdirs
 
 # Default configuration
 DEFAULT_CONFIG = {
     "target_path": os.path.abspath("./instant_servers")
 }
+
+APP_NAME = "instant-mcp"
+APP_AUTHOR = "microwiseai"
+
+def get_app_dir() -> Path:
+    """Get the application directory path.
+    
+    Returns:
+        Path to the application directory
+    """
+    return Path(appdirs.user_data_dir(APP_NAME, APP_AUTHOR))
+
+def get_config_path() -> Path:
+    """Get the configuration file path."""
+    return get_app_dir() / "config.json"
 
 def get_config_file_path() -> Path:
     """Get the path to the configuration file."""

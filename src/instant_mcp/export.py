@@ -4,12 +4,12 @@ from pathlib import Path
 from typing import Dict, Any, Optional
 from .discovery import discover_mcp_servers
 
-def export_cursor_config(output_path: Optional[str] = None, base_command: str = "instant-mcp") -> None:
+def export_cursor_config(output_dir: Optional[str] = None, base_command: str = "instant-mcp") -> None:
     """
     Export discovered servers to Cursor MCP configuration format.
     
     Args:
-        output_path: Path to save the mcp.json file. If None, saves to .cursor/mcp.json
+        output_dir: Directory where .cursor/mcp.json will be saved. If None, uses current directory.
         base_command: Base command to use for server execution
     """
     # Discover all available servers
@@ -33,11 +33,12 @@ def export_cursor_config(output_path: Optional[str] = None, base_command: str = 
             "tools": server_info['tools']
         }
     
-    # Determine output path
-    if output_path is None:
-        output_path = ".cursor/mcp.json"
+    # Set up output path
+    if output_dir is None:
+        output_dir = "."
     
-    output_file = Path(output_path)
+    # Always use .cursor/mcp.json in the specified directory
+    output_file = Path(output_dir) / ".cursor" / "mcp.json"
     
     # Create directory if it doesn't exist
     output_file.parent.mkdir(parents=True, exist_ok=True)

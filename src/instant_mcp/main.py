@@ -9,7 +9,7 @@ from cleo.helpers import argument, option
 
 from .discovery import discover_mcp_servers
 from .server_builder import run_server
-from .config import show_config, set_target_path, reset_config, get_target_path
+from .config import show_config, set_target_path, reset_config, get_target_path, get_app_dir
 from .export import export_cursor_config, export_detailed_config, show_export_preview
 
 
@@ -116,13 +116,26 @@ class ExportCursorCommand(Command):
     Export to Cursor MCP format (.cursor/mcp.json)
     
     export:cursor
+        {--output=. : Directory where .cursor/mcp.json will be saved}
     """
     
     name = "export:cursor"
     description = "Export configuration to Cursor MCP format (.cursor/mcp.json)"
     
+    options = [
+        option(
+            "output",
+            None,
+            description="Directory where .cursor/mcp.json will be saved",
+            flag=False,
+            value_required=True,
+            default="."
+        )
+    ]
+    
     def handle(self):
-        export_cursor_config()
+        output_dir = self.option('output')
+        export_cursor_config(output_dir=output_dir)
 
 
 class ExportDetailedCommand(Command):
@@ -153,6 +166,26 @@ class ExportPreviewCommand(Command):
         show_export_preview()
 
 
+class AppDirCommand(Command):
+    """
+    Show application directory location
+    
+    appdir
+    """
+    
+    name = "appdir"
+    description = "Show application directory location"
+    
+    def handle(self):
+        app_dir = get_app_dir()
+        self.line(f"Application directory: <info>{app_dir}</info>")
+        
+        # Show MCP servers directory if configured
+        target_path = get_target_path()
+        if target_path:
+            self.line(f"Current MCP servers directory: <info>{target_path}</info>")
+
+
 def create_application():
     """Create and configure the Cleo application."""
     app = Application("instant-mcp", "0.1.0")
@@ -166,6 +199,7 @@ def create_application():
     app.add(ExportCursorCommand())
     app.add(ExportDetailedCommand())
     app.add(ExportPreviewCommand())
+    app.add(AppDirCommand())
     
     return app
 
